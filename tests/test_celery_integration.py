@@ -175,6 +175,215 @@ class TestFullIntegration:
 class TestCeleryTaskSimulation:
     """Test scenarios that simulate real Celery task usage."""
 
+    def test_single_pydantic_argument_serialization(self, mock_kombu_registry):
+        """Test that a single Pydantic model is passed as positional arg, not kwargs."""
+        register_pydantic_serializer()
+
+        # This is the pattern we expect to work
+        def story_task(payload: UserModel) -> str:
+            """Task that expects single Pydantic model as positional argument."""
+            return f"Processing story for user {payload.username}"
+
+        # Create the payload
+        payload = UserModel(
+            id=123, username="test_user", email="test@example.com"
+        )
+
+        # Simulate serialization/deserialization
+        registration = mock_kombu_registry.registered_types[BaseModel]
+        encoder = registration["encoder"]
+        decoder = registration["decoder"]
+
+        serialized_payload = encoder(payload)
+        deserialized_payload = decoder(serialized_payload)
+
+        # This should work - passing model as single positional arg
+        result = story_task(deserialized_payload)
+        assert "test_user" in result
+        assert isinstance(deserialized_payload, UserModel)
+
+        # This would fail if the model fields were unpacked as kwargs
+        # story_task(id=123, username="test_user", email="test@example.com", ...)
+        # TypeError: story_task() got unexpected keyword arguments
+
+    def test_celery_apply_async_simulation(self, mock_kombu_registry):
+        """Test that simulates the full Celery apply_async flow with Pydantic models."""
+        register_pydantic_serializer()
+
+        # Task that expects a single Pydantic model
+        def task_with_pydantic(payload: UserModel) -> str:
+            return f"User: {payload.username}"
+
+        # Create payload
+        payload = UserModel(id=1, username="async_user", email="async@test.com")
+
+        # Simulate what happens in task.apply_async(args=(payload,), kwargs=None)
+        args = (payload,)  # This is what we pass to apply_async
+        kwargs = None
+
+        # Simulate Kombu serialization of args
+        registration = mock_kombu_registry.registered_types[BaseModel]
+        encoder = registration["encoder"]
+        decoder = registration["decoder"]
+
+        # Serialize each arg (this is what Kombu does)
+        serialized_args = tuple(
+            encoder(arg) if isinstance(arg, BaseModel) else arg for arg in args
+        )
+
+        # Simulate message transmission and worker receiving
+        # On worker side, deserialize args
+        deserialized_args = tuple(
+            decoder(arg) if isinstance(arg, dict) and "module" in arg and "qualname" in arg else arg
+            for arg in serialized_args
+        )
+
+        # Execute task with deserialized args (this should work)
+        result = task_with_pydantic(*deserialized_args)
+        assert "async_user" in result
+
+    def test_actual_celery_task_with_custom_base_class(self, mock_kombu_registry):
+        """Test with a custom task base class similar to JobTask."""
+        register_pydantic_serializer()
+
+        # Mock Celery Task base class with custom behavior
+        class MockJobTask:
+            def before_start(self, task_id, args, kwargs):
+                # Custom task processing like JobTask
+                pass
+
+            def on_success(self, retval, task_id, args, kwargs):
+                pass
+
+            def on_failure(self, exc, task_id, args, kwargs, einfo):
+                pass
+
+        # Task function that simulates @shared_task(base=JobTask) behavior
+        def mock_shared_task_with_base(payload: UserModel) -> str:
+            """Simulate a task decorated with @shared_task(base=JobTask)."""
+            return f"Job processing user: {payload.username}"
+
+        # Create a mock task that behaves like Celery's task execution
+        class MockTask:
+            def __init__(self, func):
+                self.func = func
+                self.base_class = MockJobTask()
+
+            def apply_async(self, args=None, kwargs=None, task_id=None):
+                """Simulate Celery's apply_async with serialization."""
+                args = args or ()
+                kwargs = kwargs or {}
+
+                # Simulate argument serialization
+                registration = mock_kombu_registry.registered_types[BaseModel]
+                encoder = registration["encoder"]
+                decoder = registration["decoder"]
+
+                # Serialize arguments (what happens in message broker)
+                serialized_args = []
+                for arg in args:
+                    if isinstance(arg, BaseModel):
+                        serialized_args.append(encoder(arg))
+                    else:
+                        serialized_args.append(arg)
+
+                # Simulate worker receiving and deserializing
+                deserialized_args = []
+                for arg in serialized_args:
+                    if isinstance(arg, dict) and "module" in arg and "qualname" in arg:
+                        deserialized_args.append(decoder(arg))
+                    else:
+                        deserialized_args.append(arg)
+
+                # Execute the task (this is where the issue might be)
+                try:
+                    # Call before_start hook
+                    self.base_class.before_start(task_id, deserialized_args, kwargs)
+
+                    # Execute task function - THIS is the critical part
+                    result = self.func(*deserialized_args, **kwargs)
+
+                    # Call success hook
+                    self.base_class.on_success(result, task_id, deserialized_args, kwargs)
+                    return result
+                except Exception as exc:
+                    # Call failure hook
+                    self.base_class.on_failure(exc, task_id, deserialized_args, kwargs, None)
+                    raise
+
+        # Create mock task
+        mock_task = MockTask(mock_shared_task_with_base)
+
+        # Test execution with Pydantic payload
+        payload = UserModel(id=42, username="job_user", email="job@test.com")
+
+        # This should work - passing model as args
+        result = mock_task.apply_async(args=(payload,), kwargs=None, task_id="test-123")
+        assert "job_user" in result
+
+    def test_story_sprout_issue_reproduction(self, mock_kombu_registry):
+        """Try to reproduce the exact issue from Story Sprout using proper models."""
+        register_pydantic_serializer()
+
+        # Task similar to ai_story_title_job using UserModel (which is properly importable)
+        def ai_story_title_job(payload: UserModel) -> str:
+            return f"Processing story for user: {payload.username}"
+
+        # Create payload using existing UserModel
+        payload = UserModel(id=123, username="story-user", email="story@test.com")
+
+        # Test what happens when we serialize/deserialize
+        registration = mock_kombu_registry.registered_types[BaseModel]
+        encoder = registration["encoder"]
+        decoder = registration["decoder"]
+
+        # Serialize
+        serialized = encoder(payload)
+
+        # What does the serialized data look like?
+        print(f"Serialized payload: {serialized}")
+
+        # Deserialize
+        deserialized = decoder(serialized)
+        print(f"Deserialized payload: {deserialized}, type: {type(deserialized)}")
+
+        # This should work
+        result = ai_story_title_job(deserialized)
+        assert "story-user" in result
+
+        # Test what happens if we accidentally unpack the model fields as kwargs
+        try:
+            # This should fail - simulating the error we're seeing
+            ai_story_title_job(id=123, username="story-user", email="story@test.com", is_active=True, profile={})
+            assert False, "Should have failed with TypeError"
+        except TypeError as e:
+            assert "unexpected keyword argument" in str(e)
+            print(f"Expected error: {e}")
+
+    def test_local_class_protection(self, mock_kombu_registry):
+        """Test that local classes are properly rejected during serialization."""
+        register_pydantic_serializer()
+
+        # Create local StoryJob model - this should fail
+        class LocalStoryJob(BaseModel):
+            story_uuid: str
+
+        # Create payload
+        payload = LocalStoryJob(story_uuid="test-uuid-123")
+
+        # Test what happens when we try to serialize a local class
+        registration = mock_kombu_registry.registered_types[BaseModel]
+        encoder = registration["encoder"]
+
+        # This should fail with a meaningful error
+        try:
+            encoder(payload)
+            assert False, "Should have failed with TypeError"
+        except TypeError as e:
+            assert "Local classes" in str(e)
+            assert "cannot be properly deserialized" in str(e)
+            print(f"Expected protection error: {e}")
+
     def test_task_argument_serialization(self, mock_kombu_registry):
         """Simulate passing Pydantic models as Celery task arguments."""
         register_pydantic_serializer()

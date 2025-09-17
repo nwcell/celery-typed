@@ -153,10 +153,24 @@ class PydanticModelDump:
 
         Returns:
             A PackedModel containing the module, qualname, and dumped data
+
+        Raises:
+            TypeError: If the model can't be safely serialized (e.g., local classes)
         """
+        # Check if this model can be properly deserialized
+        module = obj.__class__.__module__
+        qualname = obj.__class__.__qualname__
+
+        if "<locals>" in qualname or "__main__" in module:
+            raise TypeError(
+                f"Cannot serialize {obj.__class__}: "
+                "Local classes and classes defined in __main__ cannot be properly deserialized "
+                "by worker processes. Define the class in a proper module."
+            )
+
         return {
-            "module": obj.__class__.__module__,
-            "qualname": obj.__class__.__qualname__,
+            "module": module,
+            "qualname": qualname,
             "dump": obj.model_dump(),
         }
 
