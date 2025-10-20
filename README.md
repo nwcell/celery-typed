@@ -1,8 +1,8 @@
 # celery-typed
 
-[![PyPI version](https://badge.fury.io/py/celery-typed.svg)](https://badge.fury.io/py/celery-typed)
-[![Python Support](https://img.shields.io/pypi/pyversions/celery-typed.svg)](https://pypi.org/project/celery-typed/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI](https://img.shields.io/pypi/v/celery-typed)](https://pypi.org/project/celery-typed/)
+[![Python](https://img.shields.io/pypi/pyversions/celery-typed)](https://pypi.org/project/celery-typed/)
+[![License](https://img.shields.io/github/license/nwcell/celery-typed)](https://github.com/nwcell/celery-typed/blob/main/LICENSE)
 
 **Type-safe Pydantic serialization for Celery tasks**
 
