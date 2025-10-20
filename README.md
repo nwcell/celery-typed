@@ -1,5 +1,9 @@
 # celery-typed
 
+[![PyPI version](https://badge.fury.io/py/celery-typed.svg)](https://badge.fury.io/py/celery-typed)
+[![Python Support](https://img.shields.io/pypi/pyversions/celery-typed.svg)](https://pypi.org/project/celery-typed/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Type-safe Pydantic serialization for Celery tasks**
 
 A low-friction library that enables seamless Pydantic model serialization in Celery tasks using Kombu's preserializer functionality. Pass Pydantic models directly to your Celery tasks without any special decorators or manual serialization.
@@ -187,10 +191,14 @@ class Preserializer(Protocol):
 
 ## Development
 
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management. To set up a development environment:
+
 ```bash
-# Clone and install in development mode
-git clone <repository-url>
+# Clone the repository
+git clone https://github.com/nwcell/celery-typed.git
 cd celery-typed
+
+# Install dependencies
 uv sync --dev
 
 # Run tests
@@ -207,6 +215,12 @@ uv run mypy src/
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+Make sure to:
+- Add tests for any new functionality
+- Update documentation as needed
+- Follow the existing code style (enforced by Ruff)
+- Ensure all tests and type checks pass
 
 ## License
 

@@ -4,13 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "celery-typed"
-version = "0.1.0"
+version = "0.2.0"
 description = "Type-safe Pydantic serialization for Celery tasks"
 readme = "README.md"
-license = "MIT"
+license = { text = "MIT" }
 authors = [
-    { name = "Story Sprout Team" }
+    { name = "Travis Antone", email = "travis.antone@gmail.com" }
 ]
+keywords = ["celery", "pydantic", "serialization", "type-safe", "async", "task-queue"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -20,8 +21,10 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
 ]
 dependencies = [
     "celery>=5.2.0",

@@ -19,7 +19,7 @@ Usage:
 from .codecs import PackedModel, Preserializer, PydanticModelDump, load_from_path
 from .registry import register_preserializer, register_pydantic_serializer
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # Main API
