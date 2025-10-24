@@ -33,7 +33,7 @@ def main() -> int:
         "PackedModel",
         "load_from_path",
     ]
-
+    
     for export in required_exports:
         if not hasattr(celery_typed, export):
             print(f"✗ Missing export: {export}")
@@ -42,11 +42,12 @@ def main() -> int:
 
     # Test 4: Check py.typed marker exists
     try:
+        import celery_typed
         from pathlib import Path
-
+        
         package_path = Path(celery_typed.__file__).parent
         py_typed_path = package_path / "py.typed"
-
+        
         if not py_typed_path.exists():
             print("✗ py.typed marker file missing")
             return 1
