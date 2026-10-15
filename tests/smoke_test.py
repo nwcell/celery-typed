@@ -11,6 +11,7 @@ def main() -> int:
     # Test 1: Import package
     try:
         import celery_typed
+
         print("✓ Package imports successfully")
     except ImportError as e:
         print(f"✗ Failed to import package: {e}")
@@ -33,7 +34,7 @@ def main() -> int:
         "PackedModel",
         "load_from_path",
     ]
-    
+
     for export in required_exports:
         if not hasattr(celery_typed, export):
             print(f"✗ Missing export: {export}")
@@ -42,12 +43,13 @@ def main() -> int:
 
     # Test 4: Check py.typed marker exists
     try:
-        import celery_typed
         from pathlib import Path
-        
+
+        import celery_typed
+
         package_path = Path(celery_typed.__file__).parent
         py_typed_path = package_path / "py.typed"
-        
+
         if not py_typed_path.exists():
             print("✗ py.typed marker file missing")
             return 1

@@ -4,14 +4,13 @@ Integration tests for celery-typed library.
 Tests the complete workflow including Kombu registration, serialization,
 and deserialization in realistic scenarios.
 """
+from datetime import date, timedelta
 
 import pytest
 from _helpers import ComplexModel, NestedModel, SampleModel
 from pydantic import BaseModel, Field
 
-from celery_typed import (
-    register_pydantic_serializer,
-)
+from celery_typed import register_pydantic_serializer
 
 
 class UserModel(BaseModel):
@@ -119,13 +118,21 @@ class TestFullIntegration:
         assert deserialized.metadata == payload.metadata
         assert deserialized == payload
 
-    def test_multiple_model_types_in_sequence(self, mock_kombu_registry):
+    def test_multiple_model_types_in_sequence(self, mock_kombu_registry, sample_model, complex_model):
         """Test serializing different model types in sequence."""
         register_pydantic_serializer()
 
         models = [
             SampleModel(name="Alice", age=30, email="alice@test.com"),
-            ComplexModel(id=1, name="Test", tags=["a", "b"], config={"x": 1}),
+            ComplexModel(
+                id=1,
+                name="Test",
+                tags=["a", "b"],
+                config={"x": 1},
+                created=date(2026, 10, 15),
+                elapsed=timedelta(seconds=123.456),
+                elapsed_seconds=timedelta(seconds=123.456),
+            ),
             UserModel(id=2, username="bob", email="bob@test.com"),
         ]
 
@@ -185,9 +192,7 @@ class TestCeleryTaskSimulation:
             return f"Processing story for user {payload.username}"
 
         # Create the payload
-        payload = UserModel(
-            id=123, username="test_user", email="test@example.com"
-        )
+        payload = UserModel(id=123, username="test_user", email="test@example.com")
 
         # Simulate serialization/deserialization
         registration = mock_kombu_registry.registered_types[BaseModel]
@@ -219,7 +224,6 @@ class TestCeleryTaskSimulation:
 
         # Simulate what happens in task.apply_async(args=(payload,), kwargs=None)
         args = (payload,)  # This is what we pass to apply_async
-        kwargs = None
 
         # Simulate Kombu serialization of args
         registration = mock_kombu_registry.registered_types[BaseModel]
@@ -234,7 +238,9 @@ class TestCeleryTaskSimulation:
         # Simulate message transmission and worker receiving
         # On worker side, deserialize args
         deserialized_args = tuple(
-            decoder(arg) if isinstance(arg, dict) and "module" in arg and "qualname" in arg else arg
+            decoder(arg)
+            if isinstance(arg, dict) and "module" in arg and "qualname" in arg
+            else arg
             for arg in serialized_args
         )
 
@@ -304,11 +310,15 @@ class TestCeleryTaskSimulation:
                     result = self.func(*deserialized_args, **kwargs)
 
                     # Call success hook
-                    self.base_class.on_success(result, task_id, deserialized_args, kwargs)
+                    self.base_class.on_success(
+                        result, task_id, deserialized_args, kwargs
+                    )
                     return result
                 except Exception as exc:
                     # Call failure hook
-                    self.base_class.on_failure(exc, task_id, deserialized_args, kwargs, None)
+                    self.base_class.on_failure(
+                        exc, task_id, deserialized_args, kwargs, None
+                    )
                     raise
 
         # Create mock task

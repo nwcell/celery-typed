@@ -2,7 +2,10 @@
 Helper classes and utilities for celery-typed tests.
 """
 
-from pydantic import BaseModel
+from datetime import date, timedelta
+from typing import Annotated
+
+from pydantic import BaseModel, PlainSerializer
 
 
 class SampleModel(BaseModel):
@@ -20,14 +23,29 @@ class NestedModel(BaseModel):
     metadata: dict[str, str] = {}
 
 
+SecondsTimer = Annotated[
+    timedelta,
+    PlainSerializer(
+        lambda td: round(td.total_seconds(), 3),
+        return_type=float,
+        when_used="json",
+    ),
+]
+"""A timedelta that serializes to JSON as its total number of seconds, rounded to 3 decimals."""
+
+
 class ComplexModel(BaseModel):
     """Complex model with various field types."""
 
     id: int
     name: str
     tags: list[str]
-    config: dict[str, int | str]
+
+    config: dict[str, int | str | timedelta]
     is_active: bool = True
+    created: date
+    elapsed: timedelta
+    elapsed_seconds: SecondsTimer
 
 
 class LocalModel(BaseModel):

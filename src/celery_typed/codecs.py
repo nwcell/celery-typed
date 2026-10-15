@@ -171,7 +171,7 @@ class PydanticModelDump:
         return {
             "module": module,
             "qualname": qualname,
-            "dump": obj.model_dump(),
+            "dump": obj.model_dump(mode="json"),
         }
 
     @classmethod
@@ -194,4 +194,4 @@ class PydanticModelDump:
             raise TypeError(f"Cannot unpack {model_class}: not a Pydantic model")
 
         # Reconstruct the model instance from the dumped data
-        return model_class(**data["dump"])
+        return model_class.model_validate(data["dump"])

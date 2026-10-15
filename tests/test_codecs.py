@@ -103,10 +103,17 @@ class TestPydanticModelDump:
 
         # Check nested data structure
         dump = packed["dump"]
-        assert "user" in dump
-        assert "metadata" in dump
-        assert dump["user"]["name"] == "Alice"
-        assert dump["metadata"]["source"] == "test"
+        assert dump == {
+            "user": {
+                "age": 30,
+                "email": "alice@example.com",
+                "name": "Alice",
+            },
+            "metadata": {
+                "source": "test",
+                "version": "1.0",
+            },
+        }
 
     def test_pack_complex_model(self, complex_model):
         """Test packing a model with various field types."""
@@ -115,11 +122,20 @@ class TestPydanticModelDump:
         assert packed["qualname"] == "ComplexModel"
         dump = packed["dump"]
 
-        assert dump["id"] == 123
-        assert dump["name"] == "Test Item"
-        assert dump["tags"] == ["tag1", "tag2", "tag3"]
-        assert dump["config"]["timeout"] == 30
-        assert dump["is_active"] is True
+        assert dump == {
+            "id": 123,
+            "name": "Test Item",
+            "tags": ["tag1", "tag2", "tag3"],
+            "is_active": True,
+            "created": "2026-10-15",
+            "elapsed": "PT2M3.456S",
+            "elapsed_seconds": 123.456,
+            "config": {
+                "endpoint": "http://api.test",
+                "retries": 3,
+                "timeout": 30,
+            },
+        }
 
     def test_unpack_simple_model(self, sample_model):
         """Test unpacking a simple model."""
@@ -162,6 +178,42 @@ class TestPydanticModelDump:
         for model in models:
             packed = PydanticModelDump.pack(model)
             unpacked = PydanticModelDump.unpack(packed)
+            assert unpacked == model
+            assert unpacked.model_dump() == model.model_dump()
+
+    def test_json_round_trip_preservation(
+        self, sample_model, nested_model, complex_model
+    ):
+        """Test that pack/unpack preserves model data exactly."""
+        import json
+
+        models = [sample_model, nested_model, complex_model]
+
+        for model in models:
+            print()
+            packed = PydanticModelDump.pack(model)
+            jsoned = json.dumps(packed)
+            unjsoned = json.loads(jsoned)
+            unpacked = PydanticModelDump.unpack(unjsoned)
+            assert unjsoned == packed
+            assert unpacked == model
+            assert unpacked.model_dump() == model.model_dump()
+
+    def test_kombu_json_round_trip_preservation(
+        self, sample_model, nested_model, complex_model
+    ):
+        """Test that pack/unpack preserves model data exactly."""
+        from kombu.utils import json as kombu_json
+
+        models = [sample_model, nested_model, complex_model]
+
+        for model in models:
+            print()
+            packed = PydanticModelDump.pack(model)
+            jsoned = kombu_json.dumps(packed)
+            unjsoned = kombu_json.loads(jsoned)
+            unpacked = PydanticModelDump.unpack(unjsoned)
+            assert unjsoned == packed
             assert unpacked == model
             assert unpacked.model_dump() == model.model_dump()
 

@@ -199,7 +199,7 @@ git clone https://github.com/nwcell/celery-typed.git
 cd celery-typed
 
 # Install dependencies
-uv sync --dev
+uv sync --all-groups
 
 # Run tests
 uv run pytest

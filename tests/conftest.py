@@ -2,6 +2,8 @@
 Pytest configuration and fixtures for celery-typed tests.
 """
 
+from datetime import date, timedelta
+
 import pytest
 from _helpers import (
     ComplexModel,
@@ -31,7 +33,14 @@ def complex_model():
         id=123,
         name="Test Item",
         tags=["tag1", "tag2", "tag3"],
-        config={"timeout": 30, "retries": 3, "endpoint": "http://api.test"},
+        config={
+            "timeout": 30,
+            "retries": 3,
+            "endpoint": "http://api.test",
+        },
+        created=date(2026, 10, 15),
+        elapsed=timedelta(seconds=123.456),
+        elapsed_seconds=timedelta(seconds=123.456),
     )
 
 
